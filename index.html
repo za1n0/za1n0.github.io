@@ -66,9 +66,23 @@
                         <h3 id="preset-5" class="preset">5</h3>
                     </div>
                 </div>
-                <div class="card" id="partyCard">
+                <div class="card" id="partyCard" style="display: none">
                     <h2>Party</h2>
                     <input type="text" id="partyInput" />
+                </div>
+                <div class="card">
+                    <div style="display: flex">
+                        <div style="display: flex; flex-direction: column">
+                            <input type="number" min="0" max="110" id="input-0" value="0" />
+                            <input type="number" min="0" max="110" id="input-1" value="0" />
+                        </div>
+                        <div style="display: flex; flex-direction: column">
+                            <input type="number" min="0" max="110" id="input-3" value="0" />
+                            <input type="number" min="0" max="110" id="input-2" value="0" />
+                        </div>
+                    </div>
+                    Duty<input type="number" min="0" max="255" id="input-4" value="255" />
+                    <button id="offButton" class="">SET</button>
                 </div>
             </div>
         </div>
@@ -95,6 +109,7 @@
         var presetCharacteristic = 'd45b68f4-c95f-4272-81a7-6a524f4bfcd4';
         var sensorCharacteristic = '5982fda8-1efa-499c-92a8-da6c344c4788';
         var partyCharacteristic = 'edbcf869-b4eb-45a0-980a-5b5824e1a976';
+        var testCharacteristic = 'edbcf869-b4eb-45a0-980a-5b5824e1a975';
 
         //Global Variables to Handle Bluetooth
         var bleServer;
@@ -124,6 +139,37 @@
         // Write to the ESP32 LED Characteristic
         partyInput.addEventListener('blur', writePartyCharacteristic);
 
+        offButton.addEventListener('click', () => {
+            let test = {
+                ...pressureData,
+                dutyCyle: parseInt($('#input-4').val()),
+                t: [
+                    parseInt($('#input-0').val()),
+                    parseInt($('#input-1').val()),
+                    parseInt($('#input-2').val()),
+                    parseInt($('#input-3').val())
+                ]
+            };
+            const value = JSON.stringify(test);
+            adjusting = false;
+            if (value && bleServer && bleServer.connected) {
+                bleServiceFound
+                    .getCharacteristic(testCharacteristic)
+                    .then((characteristic) => {
+                        console.log('Found the test characteristic: ', characteristic.uuid);
+                        const data = new TextEncoder().encode(value);
+                        return characteristic.writeValue(data);
+                    })
+                    .then(() => {})
+                    .catch((error) => {
+                        console.error('Error writing to the Party characteristic: ', error);
+                    });
+            } else {
+                console.error('Bluetooth is not connected. Cannot write to characteristic.');
+                //window.alert("Bluetooth is not connected. Cannot write to characteristic. \n Connect to BLE first!")
+            }
+        });
+
         $('.arrow:not(.indicator)').on('click', adjustPressure);
         $('.preset').on('click', adjustPreset);
 
@@ -143,9 +189,8 @@
             console.log('Initializing Bluetooth...');
             navigator.bluetooth
                 .requestDevice({
-                    //filters: [{ name: deviceName }],
-                    //optionalServices: [bleService]
-                    acceptAllDevices: true
+                    filters: [{ name: deviceName }],
+                    optionalServices: [bleService]
                 })
                 .then((device) => {
                     console.log('Device Selected:', device.name);
